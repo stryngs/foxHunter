@@ -105,8 +105,15 @@ class Fox(object):
                         theMac = packet[Dot11].addr2
 
             ## Was it ours
-            if theMac == tgtMac.lower():
-                return True
+            try:
+                if theMac == tgtMac.lower():
+                    return True
+            except Exception as E:
+                pass
+                # print(E)
+                # wrpcap('debug.pcap', packet)
+                # sys.exit()
+
         return tailChaser
 
 
