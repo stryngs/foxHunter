@@ -1,10 +1,5 @@
 # foxHunter
-foxHunter tracks a given MAC Address based on the Source Address as prescribed by the IEEE.  It will show the user a real-time stream of the RSSI for the MAC Address in question.
-
-## Setup
-```
-python3 -m pip install scapy
-```
+foxHunter tracks a given MAC Address based on the transmitting Address as prescribed by the IEEE.  It will show the user a real-time stream of the RSSI for the MAC Address in question.
 
 ## Usage
 ```
