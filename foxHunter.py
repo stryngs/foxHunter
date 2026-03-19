@@ -1,8 +1,15 @@
 #!/usr/bin/python3
 
 import argparse
-import sys
 from scapy.all import *
+
+"""
+Found an issue with iwlwifi on the Intel Alder Lake-P PCH CNVi rev1 on Ubuntu 24 and Tiger Lake PCH CNVi rev11 on Ubuntu 22.
+This is not seen with mt7921u on the MediaTek Inc. Wireless_Device on either 22 or 24.
+
+Reverting can be done with the printed debug to a scapy object where X is the debug string:
+    RadioTap(binascii.unhexlify(X))
+"""
 
 class Fox(object):
     """ Traces the source of a given 802.11 transmission based on the specs from
@@ -53,88 +60,27 @@ class Fox(object):
 
 
     def lFilter(self, tgtMac):
-        def tailChaser(packet):
-
-            ## Null the flags
-            fromDS = False
-            toDS = False
-            fcField = None
-
-            ## With FCS
-            if packet.haslayer(Dot11FCS):
-                ## Notate bits
-                if self.nthBitSet(packet[Dot11FCS].FCfield, 0) is True:
-                    toDS = True
-                if self.nthBitSet(packet[Dot11FCS].FCfield, 1) is True:
-                    fromDS = True
-
-                ## Who sent it
-                if fromDS & toDS:
-                    theMac = packet[Dot11FCS].addr4
-                elif toDS:
-                    theMac = packet[Dot11FCS].addr2
-                elif fromDS:
-                    theMac = packet[Dot11FCS].addr3
-                else:
-                    if packet[Dot11FCS].addr2 is None:
-                        theMac = ''
-                    else:
-                        theMac = packet[Dot11FCS].addr2
-
-            ## No FCS
-            elif packet.haslayer(Dot11):
-
-                ## Notate bits
-
-                if self.nthBitSet(packet[Dot11].FCfield, 0) is True:
-                    toDS = True
-                if self.nthBitSet(packet[Dot11].FCfield, 1) is True:
-                    fromDS = True
-
-                ## Who sent it
-                if fromDS & toDS:
-                    theMac = packet[Dot11].addr4
-                elif toDS:
-                    theMac = packet[Dot11].addr2
-                elif fromDS:
-                    theMac = packet[Dot11].addr3
-                else:
-                    if packet[Dot11].addr2 is None:
-                        theMac = ''
-                    else:
-                        theMac = packet[Dot11].addr2
-
-            ## Was it ours
-            try:
-                if theMac == tgtMac.lower():
-                    return True
-            except Exception as E:
-                pass
-                # print(E)
-                # wrpcap('debug.pcap', packet)
-                # sys.exit()
-
+        mac = tgtMac.lower()
+        def tailChaser(frame):
+            if not hasattr(frame, 'FCfield'):
+                ### DEBUG
+                # print(hexstr(frame, onlyhex = 1).replace(' ', ''))
+                return False
+            fc = frame.FCfield
+            if fc.from_DS and not fc.to_DS:
+                return frame.addr3 == mac
+            return frame.addr2 == mac
         return tailChaser
-
-
-    def nthBitSet(self, integer, bit):
-        """Determine if the nth bit is set on a given integer.
-        The first bit is considered the zeroth bit.  stdout is the decimal value
-        of the bit you turn on with this method, it also returns a True.
-        Using the Python bitwise operator for AND, &.
-
-        Give it a number, it will let you know if the binary on the specified
-        bit from right to left is a 1 (True) or a 0 (False).
-        """
-        if integer & (1 << bit):
-            return True
-        return False
 
 
     def pHandler(self, tgtMac):
         """ prn """
-        def snarf(packet):
-            print(f'{self.spinner()} {tgtMac.lower()} --> {self.freqDict.get(packet[RadioTap].ChannelFrequency)} @ {packet[RadioTap].dBm_AntSignal}' )
+        mac = tgtMac.lower()
+        def snarf(frame):
+            try:
+                print(f'{self.spinner()} {mac} --> {self.freqDict.get(frame.ChannelFrequency)} @ {frame.dBm_AntSignal}' )
+            except Exception as E:
+                print(E)
         return snarf
 
 
